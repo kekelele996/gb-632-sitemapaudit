@@ -1,4 +1,4 @@
-"""应用装配：配置 → 存储 → 模板 → 六个功能模块路由。
+"""应用装配：配置 → 存储 → 模板 → 七个功能模块路由。
 
 用工厂函数而不是模块级 app，测试可以给每个用例一个临时库和一个本地样例站。
 """
@@ -15,10 +15,13 @@ from .modules.m3_reach import handler as m3_handler
 from .modules.m4_reconcile import handler as m4_handler
 from .modules.m5_batches import handler as m5_handler
 from .modules.m6_defects import handler as m6_handler
+from .modules.m7_watch import handler as m7_handler
 from .store import Store
 
-MODULES = (m1_handler, m2_handler, m3_handler, m4_handler, m5_handler, m6_handler)
-PAGE_PATHS = ("/", "/sites", "/reach", "/reconcile", "/batches", "/defects", "/healthz")
+MODULES = (m1_handler, m2_handler, m3_handler, m4_handler, m5_handler, m6_handler,
+           m7_handler)
+PAGE_PATHS = ("/", "/sites", "/reach", "/reconcile", "/batches", "/defects", "/watch",
+              "/healthz")
 
 
 def create_app(settings: config.Settings | None = None) -> FastAPI:

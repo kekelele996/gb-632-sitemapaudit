@@ -4,7 +4,6 @@ from __future__ import annotations
 import pytest
 
 from app import errors, manifest
-from app.modules.m5_batches import resume as resume_plan
 from app.modules.m5_batches import service as batch_service, state
 from fixtures.expected import FINDINGS, RESOURCES
 
@@ -41,7 +40,7 @@ def test_stop_after_crawl_keeps_partial(settings, store):
 
 def test_resume_finishes_remaining_stages(settings, store):
     partial = batch_service.run(settings, store, stop_after="crawl")["run"]
-    plan = resume_plan.plan(partial)
+    plan = state.plan(partial)
     assert plan["next"] == "probe"
     resumed = batch_service.run(settings, store, mode="resume",
                                resume_of=partial["run_id"])["run"]

@@ -96,3 +96,16 @@ def test_reachability_rejects_unknown_category(client_with_run):
     response = client_with_run.get("/api/reachability?category=NOPE")
     assert response.status_code == 400
     assert response.json()["error"] == "E_BAD_CATEGORY"
+
+
+def test_self_loop_is_cycle_not_hop_limit():
+    """反例：一跳回到自己算成环，不是链过长；两者修法不同。"""
+    class SelfLoop:
+        def get(self, url):
+            return fetch.Fetched(url=url, status=301, body=b"",
+                                 headers={"location": url})
+
+    result = probe.probe(SelfLoop(), "http://www.hz.gov.cn/site-a/loop")
+    assert result.status == 0
+    assert result.reason == "PROBE_REDIRECT_LOOP"
+    assert result.hop_count == 1

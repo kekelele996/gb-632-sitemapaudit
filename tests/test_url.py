@@ -94,3 +94,13 @@ def test_prepare_keeps_both_sides(run):
     both = [row for row in prepared["keys"] if row["catalog"] and row["sitemap"]]
     assert len(both) == 8
     assert prepared["key_count"] == UNION_KEYS
+
+
+def test_empty_query_value_kept_unless_tracking():
+    """边界：空值参数保留，只有跟踪参数名才丢；空值不等于跟踪参数。"""
+    kept = normalize.normalize("http://www.hz.gov.cn/site-a/x?keep=")
+    assert kept.url == "http://www.hz.gov.cn/site-a/x?keep="
+    assert "tracking" not in kept.notes
+    dropped = normalize.normalize("http://www.hz.gov.cn/site-a/x?utm_source=&keep=")
+    assert dropped.url == "http://www.hz.gov.cn/site-a/x?keep="
+    assert "tracking" in dropped.notes

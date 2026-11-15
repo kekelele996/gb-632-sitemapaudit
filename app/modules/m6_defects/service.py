@@ -5,9 +5,9 @@
 """
 from __future__ import annotations
 
-from ... import errors, reasons
+from ... import errors, manifest, reasons
 from ..m4_reconcile import compare as reconcile_compare
-from . import csv_out, defect, manifest_out
+from . import csv_out, defect
 
 
 def list_defects(run: dict, site: str | None = None,
@@ -60,8 +60,9 @@ def defects_filename(run: dict) -> str:
 
 
 def manifest_json(run: dict) -> str:
-    return manifest_out.manifest_json(run)
+    """运行清单导出：直接复用平台层的清单构造，不再单开一个转发模块。"""
+    return manifest.manifest_text(run)
 
 
 def manifest_filename(run: dict) -> str:
-    return manifest_out.filename(run["run_id"])
+    return f"manifest-{run['run_id']}.json"

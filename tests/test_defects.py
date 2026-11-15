@@ -99,3 +99,12 @@ def test_defect_page_and_manifest_download(client_with_run):
     manifest_response = client_with_run.get("/api/export/manifest.json")
     assert manifest_response.status_code == 200
     assert manifest_response.json()["totals"]["findings_total"] == FINDINGS
+
+
+def test_summary_totals_match_defect_rows(run):
+    """不变量：分类合计 = 站点合计 = 缺陷条数，页面、CSV、清单读数一致。"""
+    summary = defect_service.summarize(run["defects"])
+    assert summary["total"] == FINDINGS
+    assert sum(summary["by_category"].values()) == FINDINGS
+    assert sum(summary["by_site"].values()) == FINDINGS
+    assert summary["by_category"] == BY_CATEGORY

@@ -48,6 +48,12 @@ PROBE_TIMEOUT = 5.0
 MAX_CATALOG_PAGES = 6
 SMALL_BODY_LIMIT = 4 * 1024 * 1024
 
+# M7 变更监测：样例基线是上一季度用 /api/watch/snapshot.json 导出的快照，
+# 只在 base=sample 时读取；库内有更早的巡检时优先用库内的那次。
+BASELINE_PATH = PROJECT_ROOT / "sample_data" / "watch" / "baseline.json"
+WATCH_HISTORY = 8      # 历史趋势最多回看的批次
+WATCH_PAGE_ROWS = 60   # 页面单表最多展示的变化行
+
 # 目录页里被当成条目的锚点行号上限，用于防止把导航链接算成目录条目
 COVERAGE_QUANT = 4  # 覆盖率保留 4 位小数
 
@@ -87,6 +93,7 @@ class Settings:
     rule_version: str = RULE_VERSION
     max_hops: int = MAX_HOPS
     probe_timeout: float = PROBE_TIMEOUT
+    baseline_path: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -96,7 +103,12 @@ class Settings:
             sample_site_dir=os.environ.get("SAMPLE_SITE_DIR", str(PROJECT_ROOT / "sample_site")),
             eval_date=os.environ.get("EVAL_DATE", EVAL_DATE_DEFAULT),
             rule_version=os.environ.get("RULE_VERSION", RULE_VERSION),
+            baseline_path=os.environ.get("SITEMAPAUDIT_BASELINE", str(BASELINE_PATH)),
         )
+
+    @property
+    def watch_baseline_path(self) -> str:
+        return self.baseline_path or str(BASELINE_PATH)
 
     @property
     def sites(self) -> tuple[Site, ...]:

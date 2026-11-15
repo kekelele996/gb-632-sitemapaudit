@@ -1,7 +1,11 @@
-"""阶段状态：已完成的阶段、剩余阶段、停止点校验。
+"""阶段状态与续跑计划：已完成的阶段、剩余阶段、停止点校验。
 
 阶段只有三个（采信 → 探测 → 对账），停止点只能是其中之一；
 非法停止点直接 400，不做猜测性纠正。
+
+续跑只复用同一批次里已入库的采信结果（目录行、收录行、资源摘要），
+探测与对账重新执行——这两步不改变输入摘要，所以 run_id 不变，
+批次键也不变，重跑不会产生第二行。
 """
 from __future__ import annotations
 
@@ -34,3 +38,18 @@ def state(done: list[str], status: str, resume_of: str | None = None) -> dict:
 
 def stages_done(run: dict) -> list[str]:
     return list((run.get("stage_state") or {}).get("done") or [])
+
+
+def plan(run: dict) -> dict:
+    if run is None:
+        raise errors.NotFound("批次不存在", code="E_NO_RUN")
+    done = stages_done(run)
+    pending = pending_after(done)
+    return {"run_id": run["run_id"], "status": run["status"], "done": done,
+            "pending": pending, "next": next_stage(done),
+            "resume_hint": (f"从 {config.STAGE_LABELS[pending[0]]} 继续" if pending
+                            else "已完成，无需续跑")}
+
+
+def can_resume(run: dict) -> bool:
+    return bool(pending_after(stages_done(run)))

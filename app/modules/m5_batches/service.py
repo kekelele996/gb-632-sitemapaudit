@@ -14,7 +14,7 @@ from ..m2_url import service as url_service
 from ..m3_reach import service as reach_service
 from ..m4_reconcile import service as reconcile_service
 from ..m6_defects import service as defect_service
-from . import history, resume as resume_plan, state
+from . import history, state
 
 
 def _payload(run: dict, reused: bool, note: str = "") -> dict:
@@ -116,7 +116,7 @@ def resume(settings, store, resume_of: str | None, stop: str | None) -> dict:
     result = store.get_run(resume_of)
     if result is None:
         raise errors.NotFound(f"批次 {resume_of} 不存在", code="E_NO_RUN")
-    plan = resume_plan.plan(result)
+    plan = state.plan(result)
     if not plan["pending"]:
         return _payload(result, reused=True, note="RESUME_NO_STAGE")
 

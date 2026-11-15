@@ -39,7 +39,13 @@ CODES: dict[str, dict[str, str]] = {
     "PROBE_5XX": {"level": "error", "label": "服务端错误", "note": "5xx 状态码"},
     "PROBE_404": {"level": "error", "label": "页面不存在", "note": "404 状态码"},
     "PROBE_410": {"level": "error", "label": "页面已撤下", "note": "410 状态码"},
-    "PROBE_REDIRECT_LOOP": {"level": "error", "label": "跳转成环", "note": "超过跳转上限"},
+    "PROBE_REDIRECT_LOOP": {"level": "error", "label": "跳转成环", "note": "跳转链回到已访问地址"},
+    "PROBE_REDIRECT_LIMIT": {"level": "error", "label": "跳转超过上限", "note": "未回到已访问地址但超过跳转上限"},
+    "CHAIN_CYCLE": {"level": "error", "label": "跳转成环", "note": "跳转链回到已访问地址，环内地址只计一次"},
+    "CHAIN_LIMIT": {"level": "error", "label": "链超过上限", "note": "未成环但超过跳转上限，与环分开记"},
+    "BASIS_SHIFT": {"level": "warn", "label": "相对路径基准不同", "note": "同一写法按不同基准补全，不计新增也不计消失"},
+    "WATCH_NO_BASE": {"level": "info", "label": "无对比基准", "note": "库里只有本次巡检，没有可比的上次"},
+    "WATCH_SAMPLE": {"level": "info", "label": "读样例快照", "note": "库里没有上次，按样例快照对比"},
     "RESUME_NO_STAGE": {"level": "info", "label": "无剩余阶段", "note": "续跑无事可做"},
     "REPLAY_REUSED": {"level": "info", "label": "同输入复用结果", "note": "命中批次键，不新增行"},
     "SCHEMA_LEGACY": {"level": "info", "label": "旧属性映射", "note": "老目录页属性名映射到契约字段"},
@@ -72,6 +78,41 @@ CATEGORIES: dict[str, str] = {
 CATEGORY_ORDER = tuple(CATEGORIES)
 DEFECT_CATEGORIES = tuple(c for c in CATEGORY_ORDER if c != "OK")
 
+# M7 变更分桶：两次巡检同一地址的走向。互斥且穷尽，另有新增/消失/基准不同三个独立桶。
+CHANGE_BUCKETS: dict[str, dict[str, str]] = {
+    "new_dead": {"level": "error", "label": "新增死链", "note": "上次可达，本次死链"},
+    "new_redirect": {"level": "warn", "label": "新恶化", "note": "上次 200，本次要跳转"},
+    "recovered": {"level": "ok", "label": "已修复", "note": "上次死链，本次可达"},
+    "improved": {"level": "warn", "label": "已改善", "note": "上次死链，本次能打开但要跳转"},
+    "still_dead": {"level": "error", "label": "仍未修复", "note": "上次死链，本次还是死链"},
+    "still_redirect": {"level": "warn", "label": "仍为跳转", "note": "两次都要跳转"},
+    "unchanged": {"level": "ok", "label": "未变化", "note": "两次状态相同"},
+    "added": {"level": "info", "label": "新增地址", "note": "本次新出现的地址"},
+    "removed": {"level": "info", "label": "消失地址", "note": "上次有、本次没有"},
+    "basis": {"level": "warn", "label": "基准不同", "note": "同一写法按不同基准补全，需人工确认"},
+}
+CHANGE_ORDER = tuple(CHANGE_BUCKETS)
+ACTIONABLE_BUCKETS = ("new_dead", "new_redirect", "still_dead", "improved", "basis")
+# 分桶优先级给页面排序用：越靠前越要先看
+CHANGE_RANK = {bucket: index for index, bucket in enumerate(CHANGE_ORDER)}
+
+
+def change_label(bucket: str) -> str:
+    return CHANGE_BUCKETS.get(bucket, {}).get("label", bucket)
+
+
+def change_level(bucket: str) -> str:
+    return CHANGE_BUCKETS.get(bucket, {}).get("level", "info")
+
+
+def change_note(bucket: str) -> str:
+    return CHANGE_BUCKETS.get(bucket, {}).get("note", "")
+
+
+def change_rank(bucket: str) -> int:
+    return CHANGE_RANK.get(bucket, len(CHANGE_RANK))
+
+
 
 def label(code: str) -> str:
     if code in CATEGORIES:
@@ -95,7 +136,7 @@ def note_label(code: str) -> str:
 
 
 def group_of(code: str) -> str:
-    """原因码分组：采信 / 规范化 / 探测 / 批次。"""
+    """原因码分组：采信 / 规范化 / 探测 / 变更 / 批次。"""
     if code.startswith(("SITEMAP_", "BLOCK_", "DUP_LOC", "CATALOG_ROW", "CHARSET")):
         return "采信"
     if code.startswith(("TRACKING", "FRAGMENT", "SCOPE", "BAD_URL")):
@@ -104,4 +145,6 @@ def group_of(code: str) -> str:
         return "规范化"
     if code.startswith("PROBE_"):
         return "探测"
+    if code.startswith(("CHAIN_", "BASIS_", "WATCH_")):
+        return "变更"
     return "批次"

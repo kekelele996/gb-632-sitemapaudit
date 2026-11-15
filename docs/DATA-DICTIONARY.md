@@ -88,3 +88,38 @@
 | `run_id` | `ra-` + `batch_key` 前 12 位；同输入必然同号 |
 | 复用 | 同 `batch_key` 且状态 `done` 时直接返回已入库结果，不新增行 |
 | 阶段 | `crawl` / `probe` / `reconcile`，`stop_after` 可停在任一阶段 |
+
+## 7 变更监测
+
+快照 `schema = sitemapaudit/watch/1`，一条比较键一行：
+
+| 字段 | 规则 |
+|---|---|
+| `key` | 比较键：小写 + 合并重复斜杠 + 去尾斜杠（`chain.canonical_input`） |
+| `status` | 探测末态，`0` 表示传输层失败 |
+| `hop_count` | 跳转次数；`0` 表示未跳转 |
+| `chain.kind` | `direct` / `chain` / `cycle` / `limit` |
+| `raws` | 原始写法 + 补全基准（`base_kind` = `page` / `sitemap`） |
+| `rows` | 同一比较键出现多行时保留较差的一条 |
+
+三态：`status` 为 0 或 ≥400 记 `dead`；否则 `hop_count` > 0 记 `redirect`，其余 `ok`。
+
+分桶（上次 × 本次，9 格固定表，另加三种独立桶）：
+
+| 上次 | 本次 | 分桶 | 级别 |
+|---|---|---|---|
+| ok | ok | `unchanged` 未变化 | 提示 |
+| ok | redirect | `new_redirect` 新恶化 | 警告 |
+| ok | dead | `new_dead` 新增死链 | 错误 |
+| redirect | ok | `recovered` 已修复 | 正常 |
+| redirect | redirect | `still_redirect` 仍为跳转 | 警告 |
+| redirect | dead | `new_dead` 新增死链 | 错误 |
+| dead | ok | `recovered` 已修复 | 正常 |
+| dead | redirect | `improved` 已改善 | 警告 |
+| dead | dead | `still_dead` 仍未修复 | 错误 |
+| — | 有 | `added` 新增地址 | 提示 |
+| 有 | — | `removed` 消失地址 | 提示 |
+| 两侧键不同、写法相同 | — | `basis` 基准不同 | 警告 |
+
+回归清单 = `new_dead` + `new_redirect` + `still_dead` + `improved` + `basis`。
+`added` / `removed` 不计入回归；`basis` 需人工确认补全基准后再决定归属。

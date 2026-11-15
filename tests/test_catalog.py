@@ -136,3 +136,12 @@ def test_site_c_single_page_entries(run):
     page = next(p for p in run["pages"] if p["site"] == "site-c")
     assert page["entries"] == SITE_C_ENTRIES
     assert page["encoding"] == "utf-8"
+
+
+def test_sitemap_with_only_declaration_is_header_only(stub_cls, settings):
+    """边界：只有 XML 声明、没有 urlset 的 sitemap 记「仅声明」，不当作 0 条成功。"""
+    out = crawl_service.crawl_stage(
+        settings, stub_cls(b"<?xml version='1.0' encoding='UTF-8'?>"), ["site-a"])
+    codes = [row["reason"] for row in out["quarantine"]]
+    assert "SITEMAP_HEADER_ONLY" in codes
+    assert out["sitemap"] == []
